@@ -1,71 +1,101 @@
-# ۰۳ - عملیات و Broadcasting
+# ۰۳ - عملیات، Broadcasting و Aggregation
 
 ## این فصل چیست؟
 
-این فصل نشان می‌دهد NumPy چطور عملیات ریاضی را روی آرایه‌ها انجام می‌دهد — بدون حلقه، سریع‌تر و خواناتر. شامل عملیات پایه، توابع ریاضی (ufuncs)، broadcasting، و توابع تجمیع (aggregation).
+[فارسی] NumPy در پشت صحنه یک حلقه C سریع اجرا می‌کند. این فصل نشان می‌دهد چطور از این قدرت استفاده کنی: عملیات روی کل آرایه بدون حلقه، گسترش خودکار (broadcasting)، و تجمیع (aggregation). این سه مفهوم، ستون فقرات کار با داده در NumPy هستند.
 
 ## ۱. عملیات ریاضی پایه
 
-[فارسی] NumPy عملیات را **عنصر‌به‌عنصر (element-wise)** انجام می‌دهد.
+### سناریو
+
+سه خط تولید داری. دما هر خط رو در دو زمان مختلف ثبت کردی:
+
+```
+خط ۱ الان:   [20, 22, 25, 24]
+خط ۱ دیروز:  [18, 20, 23, 22]
+```
+
+می‌خوای ببینی اختلاف دما چقدر بوده. در C++ باید حلقه بنویسی. در NumPy یک خط.
+
+### کد
 
 ```python
 import numpy as np
 
-a = np.array([1, 2, 3, 4, 5])
-b = np.array([10, 20, 30, 40, 50])
+now = np.array([20, 22, 25, 24])
+yesterday = np.array([18, 20, 23, 22])
 
-a + b    # [11 22 33 44 55]
-a - b    # [-9 -18 -27 -36 -45]
-a * b    # [10 40 90 160 250]
-b / a    # [10. 10. 10. 10. 10.]
-a ** 2   # [1 4 9 16 25]
-b % a    # [0 0 0 0 0]
-b // a   # [10 10 10 10 10]
+# Element-wise difference
+diff = now - yesterday
+print(diff)   # [2 2 2 2]
 
-# Scalar broadcast
-a + 10   # [11 12 13 14 15]
-a * 3    # [3 6 9 12 15]
-
-# Comparison (returns boolean array)
-a > 2    # [False False  True  True  True]
+# All math operations work element-wise
+print(now + yesterday)   # [38 42 48 46]
+print(now * 2)           # [40 44 50 48]
+print(now / 2)           # [10. 11. 12.5 12.]
+print(now ** 2)          # [400 484 625 576]
 ```
 
 **مقایسه با C++:**
 ```cpp
-std::vector<int> result(5);
-for (int i = 0; i < a.size(); i++) {
-    result[i] = a[i] + b[i];
+std::vector<int> diff(4);
+for (int i = 0; i < now.size(); i++) {
+    diff[i] = now[i] - yesterday[i];
 }
 ```
-در NumPy: یک خط - `a + b`.
+در NumPy: `now - yesterday` — یک خط.
 
-## ۲. [فارسی] Universal Functions (ufuncs)
+## ۲.[فارسی]  ufuncs — توابع ریاضی برداری
 
-[فارسی] ufuncs توابع ریاضی هستند که مستقیماً روی کل آرایه اعمال می‌شوند.
+### سناریو
 
-| ufunc | کار | مثال |
-|---|---|---|
-| `np.sqrt` | جذر | `np.sqrt([4, 9])` → `[2. 3.]` |
-| `np.exp` | e^x | `np.exp([0, 1])` → `[1. 2.718]` |
-| `np.log` | لگاریتم طبیعی | `np.log([1, np.e])` → `[0. 1.]` |
-| `np.sin` / `np.cos` | مثلثاتی | `np.sin([0, np.pi/2])` → `[0. 1.]` |
-| `np.abs` | قدر مطلق | `np.abs([-3, -5])` → `[3 5]` |
-| `np.round` | گرد کردن | `np.round([1.4, 2.6])` → `[1. 3.]` |
-| `np.floor` / `np.ceil` | کف/سقف | `np.floor([1.9, -1.1])` → `[1. -2.]` |
+یه سنسور دما مقادیر ولتاژ می‌دهد که باید به دما تبدیل شوند (رابطه خطی با لگاریتم). یا در پردازش سیگنال، باید سینوس و کسینوس روی هزاران نمونه حساب کنی.
+
+### کد
 
 ```python
+import numpy as np
+
 arr = np.array([1, 4, 9, 16, 25])
-np.sqrt(arr)                          # [1. 2. 3. 4. 5.]
-np.exp([0, 1, 2])                     # [1. 2.718 7.389]
-np.log([1, np.e, np.e**2])            # [0. 1. 2.]
-np.sin([0, np.pi/2, np.pi])           # [0. 1. 0.]
+
+# Square root
+print(np.sqrt(arr))   # [1. 2. 3. 4. 5.]
+
+# Exponential and log
+print(np.exp([0, 1, 2]))                 # [1. 2.718 7.389]
+print(np.log([1, np.e, np.e**2]))        # [0. 1. 2.]
+
+# Trig
+angles = np.array([0, np.pi/2, np.pi])
+print(np.sin(angles))   # [0. 1. 0.]
+print(np.cos(angles))   # [1. 0. -1.]
+
+# Rounding
+floats = np.array([1.4, 2.6, -1.5, -2.5])
+print(np.round(floats))   # [1. 3. -2. -2.]
+print(np.floor(floats))   # [1. 2. -2. -3.]
+print(np.ceil(floats))    # [2. 3. -1. -2.]
 ```
 
-## ۳. [فارسی] Vectorization — سرعت
+**مقایسه با C++:**
+```cpp
+std::vector<double> result;
+for (double x : vec) {
+    result.push_back(std::sqrt(x));
+}
+```
+در NumPy: `np.sqrt(vec)` — یک خط.
 
-[فارسی] NumPy در پشت صحنه از حلقه C استفاده می‌کند. نتیجه: سرعت ۱۰ تا ۱۰۰ برابر بیشتر از حلقه Python.
+## ۳. [فارسی]  Vectorization — چرا سریع‌تر است؟
+
+### سناریو
+
+می‌خوای ۱ میلیون داده سنسور رو در ۲ ضرب کنی (تبدیل واحد). با لیست پایتون ۵۰ ثانیه طول می‌کشه، با NumPy ۲ ثانیه.
+
+### کد
 
 ```python
+import numpy as np
 import time
 
 size = 1_000_000
@@ -74,25 +104,67 @@ size = 1_000_000
 py_list = list(range(size))
 start = time.time()
 result_list = [x * 2 for x in py_list]
-list_time = time.time() - start
+print(f"List: {time.time() - start:.4f}s")
 
 # NumPy
 np_array = np.arange(size)
 start = time.time()
 result_array = np_array * 2
-numpy_time = time.time() - start
-
-# NumPy is typically 20-50x faster
+print(f"NumPy: {time.time() - start:.4f}s")
 ```
 
-## ۴. [فارسی] Broadcasting — مفهوم
+**خروجی نمونه:**
+```
+List:  0.0842s
+NumPy: 0.0031s
+NumPy is 27x faster
+```
 
-[فارسی] Broadcasting یعنی: گسترش خودکار آرایه‌های کوچک‌تر برای هم‌شکل شدن با بزرگ‌تر — **بدون کپی داده**.
+**چرا؟** NumPy از یک حلقه C استفاده می‌کند، نه حلقه Python. علاوه بر این، حافظه کم‌مصرف‌تر است.
+
+## ۴. [فارسی]  Broadcasting — گسترش خودکار
+
+### سناریو ۱: تبدیل واحد (scalar + array)
+
+داده‌ها درجه سانتی‌گراد هستند، می‌خوای به فارنهایت تبدیل کنی:
 
 ```python
-arr = np.array([1, 2, 3, 4, 5])
-result = arr + 10   # [11 12 13 14 15]
-# scalar 10 broadcast to shape (5,)
+celsius = np.array([20, 25, 30, 35, 40])
+fahrenheit = celsius * 9/5 + 32
+print(fahrenheit)   # [68. 77. 86. 95. 104.]
+```
+
+عدد `9/5` و `32` به‌طور خودکار روی کل آرایه گسترش می‌یابند.
+
+### سناریو ۲: کالیبراسیون (row + matrix)
+
+سه سنسور داری، هر سنسور ۴ بار اندازه‌گیری کرده:
+
+```python
+data = np.array([
+    [10, 11, 12, 13],   # sensor 1
+    [20, 21, 22, 23],   # sensor 2
+    [30, 31, 32, 33]    # sensor 3
+])
+
+# Every sensor has an offset (calibration)
+offsets = np.array([1, 2, 3, 4])
+
+calibrated = data + offsets
+print(calibrated)
+# [[11 13 15 17]
+#  [21 23 25 27]
+#  [31 33 35 37]]
+```
+
+[فارسی] `offsets` با shape `(4,)` به هر سطر `data` اضافه می‌شود.
+
+### سناریو ۳: نرمال‌سازی (column + matrix)
+
+```python
+col = np.array([[100], [200], [300]])
+result = data + col
+# col به هر ستون اضافه می‌شود
 ```
 
 ### قوانین Broadcasting
@@ -105,128 +177,201 @@ result = arr + 10   # [11 12 13 14 15]
 
 ۴. اگر هیچ‌کدام ۱ نباشند و یکسان هم نباشند → خطا.
 
-```python
-# scalar + array
-() + (5,) → (5,)
-
-# row + 2D
-(3, 4) + (4,) → (3, 4) + (1, 4) → (3, 4)
-
-# column + 2D
-(3, 4) + (3, 1) → (3, 4)
-
-# incompatible
-(4,) + (3,) → ValueError
+```
+scalar + array       ()      + (5,)    → (5,)
+row + 2D             (4,)    + (3, 4)  → (1, 4) + (3, 4) → (3, 4)
+column + 2D          (3, 1)  + (3, 4)  → (3, 4)
+incompatible         (4,)    + (3,)    → ValueError
 ```
 
-### مثال: بردار سطری در ماتریس
+## ۵. [فارسی]  np.newaxis — کنترل شکل broadcast
+
+### سناریو
+
+داری ۳ نقطه در فضای ۱بعدی. می‌خوای **ماتریس فاصله** بسازی — فاصله هر نقطه از هر نقطه دیگه.
 
 ```python
-matrix = np.array([[1, 2, 3],
-                   [4, 5, 6],
-                   [7, 8, 9]])
-row = np.array([10, 20, 30])
+points = np.array([1, 5, 9])
 
-matrix + row
-# [[11 22 33]
-#  [14 25 36]
-#  [17 28 39]]
-# row به هر سطر اضافه می‌شود
+# Element-wise (اشتباه برای ماتریس فاصله)
+points - points   # [0 0 0] — نمی‌خوایم این
+
+# Outer difference با np.newaxis
+diff_matrix = points[:, np.newaxis] - points
+print(diff_matrix)
+# [[ 0 -4 -8]
+#  [ 4  0 -4]
+#  [ 8  4  0]]
 ```
 
-### مثال: بردار ستونی در ماتریس
-
-```python
-col = np.array([[100], [200], [300]])
-
-matrix + col
-# [[101 102 103]
-#  [204 205 206]
-#  [307 308 309]]
-# col به هر ستون اضافه می‌شود
-```
-
-## ۵. [فارسی] np.newaxis — اضافه کردن بُعد
-
-[فارسی] `np.newaxis` یک بُعد جدید با اندازه ۱ اضافه می‌کند — برای کنترل broadcasting.
-
-| عبارت | shape |
+| عبارت | Shape |
 |---|---|
-| `a` | `(3,)` |
-| `a[:, np.newaxis]` | `(3, 1)` — ستونی |
-| `a[np.newaxis, :]` | `(1, 3)` — سطری |
+| `points` | `(3,)` |
+| `points[:, np.newaxis]` | `(3, 1)` — ستونی |
+| `points[np.newaxis, :]` | `(1, 3)` — سطری |
 
-### چرا مهم است؟
+با `np.newaxis`، یک بُعد جدید اضافه می‌شود تا broadcasting بین دو بردار ممکن شود.
 
-بدون `np.newaxis`، ضرب دو بردار shape یکسان، element-wise است — نه outer product.
+**کاربرد:** ماتریس فاصله، Kernel Methods در SVM، Attention در Transformerها (فاز ۴).
 
-```python
-a = np.array([1, 2, 3])
-b = np.array([10, 20, 30])
+## ۶. [فارسی]  Aggregation — تجمیع
 
-# Element-wise (نه outer product)
-a * b
-# [10 40 90]
-
-# Outer product با np.newaxis
-a[:, np.newaxis] * b
-# [[10 20 30]
-#  [20 40 60]
-#  [30 60 90]]
-# a[:, np.newaxis] shape (3, 1), b shape (3,)
-# Broadcast to (3, 3)
-```
-
-### کاربرد در Intelligent Systems
-
-- **ماتریس فاصله:** فاصله هر نقطه از هر نقطه دیگر.
-- **[فارسی] Kernel Methods:** در SVM و Gaussian Processes.
-- **[فارسی] Attention:** در Transformerها (فاز ۴).
-
-## ۶. [فارسی] Aggregations
-
-توابعی که یک آرایه را به یک عدد (یا آرایه کوچک‌تر) کاهش می‌دهند.
-
-| تابع | کار |
-|---|---|
-| `np.sum(arr)` | جمع کل |
-| `np.mean(arr)` | میانگین |
-| `np.std(arr)` | انحراف معیار |
-| `np.var(arr)` | واریانس |
-| `np.min(arr)` / `np.max(arr)` | کمینه / بیشینه |
-| `np.argmin(arr)` / `np.argmax(arr)` | ایندکس کمینه / بیشینه |
-| `np.median(arr)` | میانه |
-
-### پارامتر axis
-
-- `axis=None` (پیش‌فرض) → روی کل آرایه
-- `axis=0` → ستون‌ها را جمع می‌کند (خروجی به اندازه ستون‌ها)
-- `axis=1` → سطرها را جمع می‌کند (خروجی به اندازه سطرها)
+### سناریو ۱: آمار پایه
 
 ```python
-matrix = np.array([[1, 2, 3],
-                   [4, 5, 6],
-                   [7, 8, 9]])
-
-np.sum(matrix)              # 45
-np.sum(matrix, axis=0)      # [12 15 18] — per column
-np.sum(matrix, axis=1)      # [6 15 24] — per row
-np.mean(matrix, axis=0)     # [4. 5. 6.]
-np.max(matrix, axis=0)      # [7 8 9]
+sales = np.array([100, 250, 180, 300, 220, 150, 280])
+print(f"Sum:     {np.sum(sales)}")        # 1480
+print(f"Mean:    {np.mean(sales):.2f}")   # 211.43
+print(f"Std:     {np.std(sales):.2f}")
+print(f"Max:     {np.max(sales)}")        # 300
+print(f"Argmax:  {np.argmax(sales)}")     # 3 (index)
+print(f"Median:  {np.median(sales)}")     # 220
 ```
 
-**تشبیه:** `axis` یعنی "کدام بُعد را حذف کن." `axis=0` یعنی بُعد صفر (سطرها) حذف شود → نتیجه یک آرایه از جمع ستون‌ها.
+### سناریو ۲: axis — تجمیع روی یک بُعد
+
+سه خط تولید، هر خط ۴ ساعت داده:
+
+```python
+data = np.array([
+    [10, 11, 12, 13],
+    [20, 21, 22, 23],
+    [30, 31, 32, 33]
+])
+
+# Sum per column (axis=0)
+print(np.sum(data, axis=0))   # [60 63 66 69]
+
+# Sum per row (axis=1)
+print(np.sum(data, axis=1))   # [46 86 126]
+```
+
+**قانون:** `axis` یعنی "کدام بُعد را حذف کن."
+- [فارسی]  `axis=0` → بُعد اول (سطرها) حذف → نتیجه جمع ستون‌ها.
+- [فارسی]  `axis=1` → بُعد دوم (ستون‌ها) حذف → نتیجه جمع سطرها.
+
+### سناریو ۳: keepdims — حفظ ابعاد
+
+می‌خوای هر خط تولید رو نسبت به میانگین خودش نرمال کنی:
+
+```python
+data = np.array([
+    [10, 20, 30],
+    [40, 50, 60],
+    [70, 80, 90]
+])
+
+# Mean per row with keepdims
+row_means = np.mean(data, axis=1, keepdims=True)
+# shape (3, 1)
+
+normalized = data - row_means
+print(normalized)
+# [[-10.   0.  10.]
+#  [-10.   0.  10.]
+#  [-10.   0.  10.]]
+```
+
+**چرا `keepdims`؟** بدون آن، `row_means` شکل `(3,)` می‌گیرد و نمی‌تواند مستقیم از `data` (با شکل `(3, 3)`) کم شود. با `keepdims=True`، شکل `(3, 1)` می‌ماند و broadcasting ممکن می‌شود.
+
+### سناریو ۴: Aggregation با شرط
+
+```python
+sales = np.array([100, 500, 250, 800, 150, 1200, 300, 200])
+
+# Sum of high sales (> 300)
+print(np.sum(sales[sales > 300]))   # 2300
+
+# Count of even sales
+print(np.count_nonzero(sales % 2 == 0))   # 6
+
+# Mean of low sales (< 200)
+print(np.mean(sales[sales < 200]))   # 125.0
+```
+
+## ۷. [فارسی]  NaN Handling — داده‌های گمشده
+
+### سناریو
+
+سنسور دما هر دقیقه داده می‌فرسته، ولی گاهی قطع می‌شود. `NaN` یعنی "داده ندارم".
+
+```python
+temps = np.array([22.5, 23.1, np.nan, 24.3, np.nan, 25.0, 26.2])
+
+# Regular mean → NaN
+print(np.mean(temps))   # nan
+
+# NaN-aware mean
+print(np.nanmean(temps))   # 24.22
+
+# Count NaN
+print(np.sum(np.isnan(temps)))   # 2
+
+# Remove NaN
+clean = temps[~np.isnan(temps)]
+print(clean)   # [22.5 23.1 24.3 25.0 26.2]
+```
+
+**نکته:** `NaN == NaN` همیشه `False` است — از `np.isnan()` استفاده کن.
+
+## ۸. [فارسی] Cumulative — عملیات تجمعی
+
+### سناریو
+
+مصرف روزانه برق کارخونه:
+
+```python
+daily = np.array([100, 150, 200, 180, 220, 250, 300])
+
+# Running total
+total = np.cumsum(daily)
+print(total)   # [100 250 450 630 850 1100 1400]
+```
+
+**پس `cumsum` یعنی:** جمع تجمعی — هر عنصر، مجموع همه عناصر قبلی + خودش.
+
+### با axis
+
+```python
+matrix = np.array([
+    [1, 2, 3],
+    [4, 5, 6]
+])
+
+print(np.cumsum(matrix, axis=0))   # per column
+# [[1 2 3]
+#  [5 7 9]]
+
+print(np.cumsum(matrix, axis=1))   # per row
+# [[1 3 6]
+#  [4 9 15]]
+```
+
+## جدول خلاصه عملیات
+
+| عملیات | نتیجه | View/Copy |
+|---|---|---|
+| `a + b` | element-wise | — |
+| `np.sqrt(arr)` | ufunc | Copy |
+| `arr + 10` | scalar broadcast | Copy |
+| `matrix + row` | row broadcast | Copy |
+| `data - mean(axis=0, keepdims=True)` | normalization | Copy |
+| `arr[arr > 5]` | boolean mask | Copy |
+| `np.sum(arr, axis=0)` | column sum | — |
+| `np.cumsum(arr)` | running total | — |
 
 ## نکات کلیدی این فصل
 
-1. عملیات NumPy همیشه element-wise است (مگر با broadcasting).
+1. عملیات NumPy همیشه element-wise است (مگر broadcasting).
 2. [فارسی] ufuncs توابع ریاضی عنصر‌به‌عنصر هستند — بدون حلقه.
-3. [فارسی] Vectorization سرعت ۱۰ تا ۱۰۰ برابر بیشتر از حلقه Python است.
-4. [فارسی] Broadcasting گسترش خودکار آرایه‌های کوچک‌تر است — بدون کپی داده.
-5. قوانین broadcasting از راست به چپ: اگر ابعاد یکسان یا یکی ۱ باشد، امکان‌پذیر است.
-6. [فارسی] `np.newaxis` یک بُعد اضافه می‌کند — برای کنترل شکل broadcast.
+3. [فارسی] Vectorization سرعت ۲۰ تا ۵۰ برابر بیشتر از حلقه Python است.
+4. [فارسی] Broadcasting گسترش خودکار آرایه‌های کوچک‌تر است — بدون کپی.
+5. قوانین broadcasting از راست به چپ: اگر ابعاد یکسان یا یکی ۱ باشد، ممکن است.
+6. [فارسی] `np.newaxis` یک بُعد اضافه می‌کند — برای ماتریس فاصله و outer product.
 7. [فارسی] `axis` یعنی "کدام بُعد را حذف کن."
-8. [فارسی] `axis=0` برای ستون‌ها، `axis=1` برای سطرها.
+8. [فارسی] `keepdims=True` ابعاد را حفظ می‌کند — برای broadcasting بعدی.
+9. [فارسی] `np.nan*` functions داده‌های گمشده را نادیده می‌گیرند.
+10. [فارسی] `cumsum` و `cumprod` عملیات تجمعی هستند.
 
 ## تمرین‌ها
 
@@ -237,17 +382,27 @@ np.max(matrix, axis=0)      # [7 8 9]
 | ۰۳ | Broadcasting پایه | `exercise_03.py` |
 | ۰۴ | Broadcasting پیشرفته | `exercise_04.py` |
 | ۰۵ | Aggregations | `exercise_05.py` |
+| ۰۶ | Aggregation + Broadcasting + NaN | `exercise_06.py` |
 
 ## پرسش و پاسخ (Q&A)
 
-### سوال: چرا `a * b` (دو بردار shape یکسان) نتیجه element-wise می‌دهد، نه outer product؟
-**پاسخ:** NumPy وقتی shapeها یکسان باشند، عنصر‌به‌عنصر عمل می‌کند. برای outer product باید یک بردار را به شکل ستونی (`a[:, np.newaxis]`) تبدیل کنی تا broadcast اتفاق بیفتد و ماتریس ۲D ساخته شود.
+### سوال: چرا `a * b` (دو بردار shape یکسان) element-wise است، نه outer product؟
+**پاسخ:** وقتی shapeها یکسان باشند، NumPy عنصر‌به‌عنصر عمل می‌کند. برای outer product باید یک بردار را با `a[:, np.newaxis]` به شکل ستونی تبدیل کنی.
 
-### سوال: `np.newaxis` دقیقاً چه می‌کند؟
-**پاسخ:** یک بُعد جدید با اندازه ۱ اضافه می‌کند. `a[:, np.newaxis]` بردار `(3,)` را به `(3, 1)` تبدیل می‌کند (ستونی) و `a[np.newaxis, :]` به `(1, 3)` (سطری). این بُعد اضافه باعث می‌شود broadcasting بین دو بردار ممکن شود و outer product ساخته شود.
+### سوال: `np.newaxis` چه می‌کند؟
+**پاسخ:** یک بُعد جدید با اندازه ۱ اضافه می‌کند. `a[:, np.newaxis]` بردار `(3,)` را به `(3, 1)` تبدیل می‌کند و `a[np.newaxis, :]` به `(1, 3)`. این بُعد اضافه broadcasting بین دو بردار را ممکن می‌کند.
 
 ### سوال: تفاوت `axis=0` و `axis=1` چیست؟
-**پاسخ:** `axis=0` یعنی بُعد اول (سطرها) حذف شود — نتیجه از جمع ستون‌ها می‌آید. `axis=1` یعنی بُعد دوم (ستون‌ها) حذف شود — نتیجه از جمع سطرها می‌آید. به‌طور خلاصه: `axis` یعنی "کدام بُعد را حذف کنم."
+**پاسخ:** `axis=0` بُعد اول (سطرها) را حذف می‌کند — نتیجه جمع ستون‌ها. `axis=1` بُعد دوم (ستون‌ها) را حذف می‌کند — نتیجه جمع سطرها.
+
+### سوال: `keepdims` چه کاربردی دارد؟
+**پاسخ:** ابعاد حذف‌شده را با اندازه ۱ حفظ می‌کند. برای عملیاتی مثل نرمال‌سازی که نیاز به broadcasting بین نتیجه تجمیع و آرایه اصلی داری، لازم است. مثال: `matrix - np.mean(matrix, axis=0, keepdims=True)`.
+
+### سوال: چرا `NaN == NaN` همیشه False است؟
+**پاسخ:** طبق استاندارد IEEE 754، NaN یعنی "عدد نامعتبر" — نمی‌توان دو مقدار نامعتبر را با هم مقایسه کرد. برای بررسی از `np.isnan()` استفاده کن.
+
+### سوال: `cumsum` چه کاربردی دارد؟
+**پاسخ:** جمع تجمعی. هر عنصر، مجموع همه عناصر قبلی + خودش. برای محاسبه running total در سری زمانی (مثل مصرف تجمعی برق) کاربرد دارد.
 
 ### سوال: Broadcasting چه زمانی خطا می‌دهد؟
-**پاسخ:** وقتی در یک بُعد، نه اندازه‌ها یکسان باشند، نه یکی از آن‌ها ۱ باشد. مثلاً `(4,) + (3,)` خطا می‌دهد چون ۴ و ۳ ناسازگارند.
+**پاسخ:** وقتی در یک بُعد، نه اندازه‌ها یکسان باشند و نه یکی از آن‌ها ۱ باشد. مثال: `(4,) + (3,)` خطا می‌دهد.

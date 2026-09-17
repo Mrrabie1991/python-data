@@ -1,71 +1,87 @@
-# 03 - Operations & Broadcasting
+# 03 - Operations, Broadcasting & Aggregation
 
 ## What Is This Chapter?
 
-This chapter shows how NumPy performs math operations on arrays — without loops, faster and more readable. Topics: basic operations, universal functions (ufuncs), broadcasting, and aggregation functions.
+NumPy runs a fast C loop behind the scenes. This chapter shows how to use that power: operations on the whole array without loops, automatic expansion (broadcasting), and reduction (aggregation). These three concepts are the backbone of data manipulation in NumPy.
 
 ## 1. Basic Mathematical Operations
 
-NumPy performs operations **element-wise**.
+### Scenario
+
+You have three production lines. You recorded temperature from each line at two different times:
+
+```
+Line 1 now:     [20, 22, 25, 24]
+Line 1 yesterday: [18, 20, 23, 22]
+```
+
+You want to see the temperature difference. In C++, you write a loop. In NumPy, one line.
+
+### Code
 
 ```python
 import numpy as np
 
-a = np.array([1, 2, 3, 4, 5])
-b = np.array([10, 20, 30, 40, 50])
+now = np.array([20, 22, 25, 24])
+yesterday = np.array([18, 20, 23, 22])
 
-a + b    # [11 22 33 44 55]
-a - b    # [-9 -18 -27 -36 -45]
-a * b    # [10 40 90 160 250]
-b / a    # [10. 10. 10. 10. 10.]
-a ** 2   # [1 4 9 16 25]
-b % a    # [0 0 0 0 0]
-b // a   # [10 10 10 10 10]
+# Element-wise difference
+diff = now - yesterday
+print(diff)   # [2 2 2 2]
 
-# Scalar broadcast
-a + 10   # [11 12 13 14 15]
-a * 3    # [3 6 9 12 15]
-
-# Comparison (returns boolean array)
-a > 2    # [False False  True  True  True]
+# All math operations work element-wise
+print(now + yesterday)   # [38 42 48 46]
+print(now * 2)           # [40 44 50 48]
+print(now / 2)           # [10. 11. 12.5 12.]
+print(now ** 2)          # [400 484 625 576]
 ```
 
 **Comparison with C++:**
 ```cpp
-std::vector<int> result(5);
-for (int i = 0; i < a.size(); i++) {
-    result[i] = a[i] + b[i];
+std::vector<int> diff(4);
+for (int i = 0; i < now.size(); i++) {
+    diff[i] = now[i] - yesterday[i];
 }
 ```
-In NumPy: `a + b` — one line.
+In NumPy: `now - yesterday` — one line.
 
-## 2. Universal Functions (ufuncs)
+## 2. ufuncs — Vectorized Math Functions
 
-ufuncs are math functions applied directly to the whole array.
+### Scenario
 
-| ufunc | Purpose | Example |
-|---|---|---|
-| `np.sqrt` | Square root | `np.sqrt([4, 9])` → `[2. 3.]` |
-| `np.exp` | e^x | `np.exp([0, 1])` → `[1. 2.718]` |
-| `np.log` | Natural log | `np.log([1, np.e])` → `[0. 1.]` |
-| `np.sin` / `np.cos` | Trigonometric | `np.sin([0, np.pi/2])` → `[0. 1.]` |
-| `np.abs` | Absolute value | `np.abs([-3, -5])` → `[3 5]` |
-| `np.round` | Round | `np.round([1.4, 2.6])` → `[1. 3.]` |
-| `np.floor` / `np.ceil` | Floor / Ceil | `np.floor([1.9, -1.1])` → `[1. -2.]` |
+A temperature sensor outputs voltage that must be converted to temperature (logarithmic relation). Or in signal processing, you need sin and cos over thousands of samples.
+
+### Code
 
 ```python
+import numpy as np
+
 arr = np.array([1, 4, 9, 16, 25])
-np.sqrt(arr)                          # [1. 2. 3. 4. 5.]
-np.exp([0, 1, 2])                     # [1. 2.718 7.389]
-np.log([1, np.e, np.e**2])            # [0. 1. 2.]
-np.sin([0, np.pi/2, np.pi])           # [0. 1. 0.]
+
+print(np.sqrt(arr))   # [1. 2. 3. 4. 5.]
+print(np.exp([0, 1, 2]))                 # [1. 2.718 7.389]
+print(np.log([1, np.e, np.e**2]))        # [0. 1. 2.]
+
+angles = np.array([0, np.pi/2, np.pi])
+print(np.sin(angles))   # [0. 1. 0.]
+print(np.cos(angles))   # [1. 0. -1.]
+
+floats = np.array([1.4, 2.6, -1.5, -2.5])
+print(np.round(floats))   # [1. 3. -2. -2.]
+print(np.floor(floats))   # [1. 2. -2. -3.]
+print(np.ceil(floats))    # [2. 3. -1. -2.]
 ```
 
-## 3. Vectorization — Speed
+## 3. Vectorization — Why Faster?
 
-NumPy uses a C loop behind the scenes. Result: 10 to 100x faster than Python loops.
+### Scenario
+
+You want to multiply 1 million sensor readings by 2 (unit conversion). Python list: ~50 ms. NumPy: ~2 ms.
+
+### Code
 
 ```python
+import numpy as np
 import time
 
 size = 1_000_000
@@ -74,156 +90,243 @@ size = 1_000_000
 py_list = list(range(size))
 start = time.time()
 result_list = [x * 2 for x in py_list]
-list_time = time.time() - start
+print(f"List: {time.time() - start:.4f}s")
 
 # NumPy
 np_array = np.arange(size)
 start = time.time()
 result_array = np_array * 2
-numpy_time = time.time() - start
-
-# NumPy is typically 20-50x faster
+print(f"NumPy: {time.time() - start:.4f}s")
 ```
 
-## 4. Broadcasting — Concept
+**Sample output:**
+```
+List:  0.0842s
+NumPy: 0.0031s
+NumPy is 27x faster
+```
 
-Broadcasting means: automatically expanding smaller arrays to match the larger one — **without copying data**.
+**Why?** NumPy uses a C loop, not a Python loop. Plus, much less memory overhead.
+
+## 4. Broadcasting — Automatic Expansion
+
+### Scenario 1: Unit Conversion (scalar + array)
+
+Data is in Celsius, you want Fahrenheit:
 
 ```python
-arr = np.array([1, 2, 3, 4, 5])
-result = arr + 10   # [11 12 13 14 15]
-# scalar 10 broadcast to shape (5,)
+celsius = np.array([20, 25, 30, 35, 40])
+fahrenheit = celsius * 9/5 + 32
+print(fahrenheit)   # [68. 77. 86. 95. 104.]
+```
+
+The numbers `9/5` and `32` are automatically expanded over the whole array.
+
+### Scenario 2: Calibration (row + matrix)
+
+Three sensors, each measured 4 times:
+
+```python
+data = np.array([
+    [10, 11, 12, 13],   # sensor 1
+    [20, 21, 22, 23],   # sensor 2
+    [30, 31, 32, 33]    # sensor 3
+])
+
+# Every sensor has an offset (calibration)
+offsets = np.array([1, 2, 3, 4])
+
+calibrated = data + offsets
+print(calibrated)
+# [[11 13 15 17]
+#  [21 23 25 27]
+#  [31 33 35 37]]
+```
+
+### Scenario 3: Column Normalization (column + matrix)
+
+```python
+col = np.array([[100], [200], [300]])
+result = data + col
+# col is added to each column
 ```
 
 ### Broadcasting Rules
 
-1. If two arrays have the same dimensions → element-wise.
-2. If one has fewer dimensions, its shape is padded with 1 from the **left**.
-3. In each dimension: if sizes are equal or one is **1** → broadcast is possible.
-4. If neither is 1 and they differ → error.
+1. If two arrays have same dims → element-wise.
+2. If one has fewer dims, its shape is padded with 1 from the **left**.
+3. In each dimension: sizes must be equal or one must be **1**.
+4. Otherwise → error.
 
-```python
-# scalar + array
-() + (5,) → (5,)
-
-# row + 2D
-(3, 4) + (4,) → (3, 4) + (1, 4) → (3, 4)
-
-# column + 2D
-(3, 4) + (3, 1) → (3, 4)
-
-# incompatible
-(4,) + (3,) → ValueError
+```
+scalar + array       ()      + (5,)    → (5,)
+row + 2D             (4,)    + (3, 4)  → (1, 4) + (3, 4) → (3, 4)
+column + 2D          (3, 1)  + (3, 4)  → (3, 4)
+incompatible         (4,)    + (3,)    → ValueError
 ```
 
-### Example: Row Vector with Matrix
+## 5. np.newaxis — Controlling Broadcast Shape
+
+### Scenario
+
+You have 3 points in 1D space. You want a **distance matrix** — distance of every point from every other point.
 
 ```python
-matrix = np.array([[1, 2, 3],
-                   [4, 5, 6],
-                   [7, 8, 9]])
-row = np.array([10, 20, 30])
+points = np.array([1, 5, 9])
 
-matrix + row
-# [[11 22 33]
-#  [14 25 36]
-#  [17 28 39]]
-# row is added to each row of matrix
+# Element-wise (wrong for distance matrix)
+points - points   # [0 0 0]
+
+# Outer difference with np.newaxis
+diff_matrix = points[:, np.newaxis] - points
+print(diff_matrix)
+# [[ 0 -4 -8]
+#  [ 4  0 -4]
+#  [ 8  4  0]]
 ```
-
-### Example: Column Vector with Matrix
-
-```python
-col = np.array([[100], [200], [300]])
-
-matrix + col
-# [[101 102 103]
-#  [204 205 206]
-#  [307 308 309]]
-# col is added to each column of matrix
-```
-
-## 5. np.newaxis — Adding a Dimension
-
-`np.newaxis` adds a new dimension of size 1 — for controlling broadcasting.
 
 | Expression | Shape |
 |---|---|
-| `a` | `(3,)` |
-| `a[:, np.newaxis]` | `(3, 1)` — column |
-| `a[np.newaxis, :]` | `(1, 3)` — row |
+| `points` | `(3,)` |
+| `points[:, np.newaxis]` | `(3, 1)` — column |
+| `points[np.newaxis, :]` | `(1, 3)` — row |
 
-### Why Important?
+**Applications:** Distance matrix, Kernel Methods in SVM, Attention in Transformers (Phase 4).
 
-Without `np.newaxis`, multiplying two vectors of the same shape is element-wise — not outer product.
+## 6. Aggregation
 
-```python
-a = np.array([1, 2, 3])
-b = np.array([10, 20, 30])
-
-# Element-wise (not outer product)
-a * b
-# [10 40 90]
-
-# Outer product with np.newaxis
-a[:, np.newaxis] * b
-# [[10 20 30]
-#  [20 40 60]
-#  [30 60 90]]
-# a[:, np.newaxis] shape (3, 1), b shape (3,)
-# Broadcast to (3, 3)
-```
-
-### Applications in Intelligent Systems
-
-- **Distance matrix:** distance between every pair of points.
-- **Kernel Methods:** in SVM and Gaussian Processes.
-- **Attention:** in Transformers (Phase 4).
-
-## 6. Aggregations
-
-Functions that reduce an array to a scalar (or smaller array).
-
-| Function | Purpose |
-|---|---|
-| `np.sum(arr)` | Total sum |
-| `np.mean(arr)` | Mean |
-| `np.std(arr)` | Standard deviation |
-| `np.var(arr)` | Variance |
-| `np.min(arr)` / `np.max(arr)` | Min / Max |
-| `np.argmin(arr)` / `np.argmax(arr)` | Index of min / max |
-| `np.median(arr)` | Median |
-
-### The axis Parameter
-
-- `axis=None` (default) → whole array
-- `axis=0` → sums columns (output size = number of columns)
-- `axis=1` → sums rows (output size = number of rows)
+### Scenario 1: Basic Statistics
 
 ```python
-matrix = np.array([[1, 2, 3],
-                   [4, 5, 6],
-                   [7, 8, 9]])
-
-np.sum(matrix)              # 45
-np.sum(matrix, axis=0)      # [12 15 18] — per column
-np.sum(matrix, axis=1)      # [6 15 24] — per row
-np.mean(matrix, axis=0)     # [4. 5. 6.]
-np.max(matrix, axis=0)      # [7 8 9]
+sales = np.array([100, 250, 180, 300, 220, 150, 280])
+print(f"Sum:     {np.sum(sales)}")        # 1480
+print(f"Mean:    {np.mean(sales):.2f}")   # 211.43
+print(f"Std:     {np.std(sales):.2f}")
+print(f"Max:     {np.max(sales)}")        # 300
+print(f"Argmax:  {np.argmax(sales)}")     # 3
+print(f"Median:  {np.median(sales)}")     # 220
 ```
 
-**Analogy:** `axis` means "which dimension to remove." `axis=0` removes the first dimension (rows) → result is an array of column sums.
+### Scenario 2: axis — Aggregation Along One Dimension
+
+```python
+data = np.array([
+    [10, 11, 12, 13],
+    [20, 21, 22, 23],
+    [30, 31, 32, 33]
+])
+
+print(np.sum(data, axis=0))   # [60 63 66 69] — per column
+print(np.sum(data, axis=1))   # [46 86 126] — per row
+```
+
+**Rule:** `axis` means "which dimension to remove."
+- `axis=0` → removes first dimension (rows) → result is column sums.
+- `axis=1` → removes second dimension (columns) → result is row sums.
+
+### Scenario 3: keepdims — Preserving Dimensions
+
+```python
+data = np.array([
+    [10, 20, 30],
+    [40, 50, 60],
+    [70, 80, 90]
+])
+
+row_means = np.mean(data, axis=1, keepdims=True)   # shape (3, 1)
+normalized = data - row_means
+print(normalized)
+# [[-10.   0.  10.]
+#  [-10.   0.  10.]
+#  [-10.   0.  10.]]
+```
+
+**Why `keepdims`?** Without it, `row_means` shape is `(3,)` and cannot be subtracted directly from `data` (shape `(3, 3)`). With `keepdims=True`, shape stays `(3, 1)` and broadcasting works.
+
+### Scenario 4: Aggregation with Condition
+
+```python
+sales = np.array([100, 500, 250, 800, 150, 1200, 300, 200])
+
+print(np.sum(sales[sales > 300]))              # 2300
+print(np.count_nonzero(sales % 2 == 0))        # 6
+print(np.mean(sales[sales < 200]))             # 125.0
+```
+
+## 7. NaN Handling
+
+### Scenario
+
+Temperature sensor sends data every minute, but sometimes disconnects. `NaN` means "no data".
+
+```python
+temps = np.array([22.5, 23.1, np.nan, 24.3, np.nan, 25.0, 26.2])
+
+print(np.mean(temps))       # nan
+print(np.nanmean(temps))    # 24.22
+print(np.sum(np.isnan(temps)))   # 2
+
+clean = temps[~np.isnan(temps)]
+print(clean)   # [22.5 23.1 24.3 25.0 26.2]
+```
+
+**Note:** `NaN == NaN` is always `False`. Use `np.isnan()`.
+
+## 8. Cumulative Operations
+
+### Scenario
+
+Daily factory electricity consumption:
+
+```python
+daily = np.array([100, 150, 200, 180, 220, 250, 300])
+
+total = np.cumsum(daily)
+print(total)   # [100 250 450 630 850 1100 1400]
+```
+
+### With axis
+
+```python
+matrix = np.array([
+    [1, 2, 3],
+    [4, 5, 6]
+])
+
+print(np.cumsum(matrix, axis=0))   # per column
+# [[1 2 3]
+#  [5 7 9]]
+
+print(np.cumsum(matrix, axis=1))   # per row
+# [[1 3 6]
+#  [4 9 15]]
+```
+
+## Summary Table
+
+| Operation | Result | View/Copy |
+|---|---|---|
+| `a + b` | element-wise | — |
+| `np.sqrt(arr)` | ufunc | Copy |
+| `arr + 10` | scalar broadcast | Copy |
+| `matrix + row` | row broadcast | Copy |
+| `data - mean(axis=0, keepdims=True)` | normalization | Copy |
+| `arr[arr > 5]` | boolean mask | Copy |
+| `np.sum(arr, axis=0)` | column sum | — |
+| `np.cumsum(arr)` | running total | — |
 
 ## Key Takeaways
 
-1. NumPy operations are always element-wise (unless broadcasting applies).
-2. ufuncs are element-wise math functions — without loops.
-3. Vectorization is 10-100x faster than Python loops.
-4. Broadcasting is automatic expansion of smaller arrays — without copying data.
+1. NumPy operations are always element-wise (unless broadcasting).
+2. ufuncs are element-wise math functions — no loops.
+3. Vectorization is 20-50x faster than Python loops.
+4. Broadcasting expands smaller arrays automatically — no data copies.
 5. Broadcasting rules apply from right to left: sizes must be equal or one must be 1.
-6. `np.newaxis` adds a dimension — for controlling broadcast shape.
+6. `np.newaxis` adds a dimension — for distance matrices and outer products.
 7. `axis` means "which dimension to remove."
-8. `axis=0` for columns, `axis=1` for rows.
+8. `keepdims=True` preserves dimensions — for subsequent broadcasting.
+9. `np.nan*` functions ignore missing data.
+10. `cumsum` and `cumprod` are cumulative operations.
 
 ## Exercises
 
@@ -234,17 +337,27 @@ np.max(matrix, axis=0)      # [7 8 9]
 | 03 | Basic broadcasting | `exercise_03.py` |
 | 04 | Advanced broadcasting | `exercise_04.py` |
 | 05 | Aggregations | `exercise_05.py` |
+| 06 | Aggregation + Broadcasting + NaN | `exercise_06.py` |
 
 ## Q&A / Key Insights
 
 ### Q: Why does `a * b` (two vectors of same shape) give element-wise result, not outer product?
-**A:** NumPy performs element-wise when shapes match. For outer product, reshape one vector to column form (`a[:, np.newaxis]`) so broadcasting produces a 2D matrix.
+**A:** When shapes match, NumPy operates element-wise. For outer product, reshape one vector with `a[:, np.newaxis]`.
 
-### Q: What exactly does `np.newaxis` do?
-**A:** It adds a new dimension of size 1. `a[:, np.newaxis]` turns vector `(3,)` into `(3, 1)` (column), and `a[np.newaxis, :]` into `(1, 3)` (row). This extra dimension makes broadcasting between two vectors possible, producing an outer product.
+### Q: What does `np.newaxis` do?
+**A:** Adds a new dimension of size 1. `a[:, np.newaxis]` turns `(3,)` into `(3, 1)` (column), and `a[np.newaxis, :]` into `(1, 3)` (row).
 
-### Q: What's the difference between `axis=0` and `axis=1`?
-**A:** `axis=0` removes the first dimension (rows) — result comes from summing columns. `axis=1` removes the second dimension (columns) — result comes from summing rows. In short: `axis` means "which dimension to remove."
+### Q: Difference between `axis=0` and `axis=1`?
+**A:** `axis=0` removes the first dimension (rows) — result is column sums. `axis=1` removes the second dimension (columns) — result is row sums.
+
+### Q: What is `keepdims` used for?
+**A:** Preserves removed dimensions with size 1. Needed for operations like normalization where you broadcast between the aggregated result and the original array.
+
+### Q: Why is `NaN == NaN` always False?
+**A:** Per IEEE 754, NaN means "invalid number" — comparison is undefined. Use `np.isnan()`.
+
+### Q: What is `cumsum` used for?
+**A:** Cumulative sum. Each element is the sum of all previous elements plus itself. Used for running totals in time series.
 
 ### Q: When does broadcasting fail?
-**A:** When in a dimension, sizes are neither equal nor one of them is 1. E.g., `(4,) + (3,)` fails because 4 and 3 are incompatible.
+**A:** When in a dimension, sizes are neither equal nor one of them is 1. Example: `(4,) + (3,)` fails.
